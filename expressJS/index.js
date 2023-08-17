@@ -1,48 +1,113 @@
 const express = require("express");
-const mongoose = require("mongoose");
-const app = express();
 const path = require("path");
+const mongoose = require("mongoose");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
 mongoose
   .connect("mongodb://127.0.0.1:27017", {
     dbName: "backend",
   })
-  .then(() => console.log("connected"))
+  .then(() => console.log("Database Connected"))
   .catch((e) => console.log(e));
 
-const messageSchema = mongoose.Schema({
+const userSchema = new mongoose.Schema({
   name: String,
   email: String,
+  password: String,
 });
 
-const message = mongoose.model("names", messageSchema);
-let users = [];
-app.listen(4000, () => {
-  console.log("working");
-});
+const User = mongoose.model("User", userSchema);
+
+const app = express();
+
+// Using Middlewares
 app.use(express.static(path.join(path.resolve(), "public")));
-//accessing the middleware
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-//setting up view engine
+// Setting up View Engine
 app.set("view engine", "ejs");
-app.get("/", (req, res) => {
-  res.render("index", { name: "Mati" });
+
+const isAuthenticated = async (req, res, next) => {
+  const { token } = req.cookies;
+  if (token) {
+    const decoded = jwt.verify(token, "sdjasdbajsdbjasd");
+
+    req.user = await User.findById(decoded._id);
+
+    next();
+  } else {
+    res.redirect("/login");
+  }
+};
+
+app.get("/", isAuthenticated, (req, res) => {
+  res.render("logout", { name: req.user.name });
 });
 
-app.post("/add", async (req, res) => {
-  const data = await message.create({
-    name: req.body.name,
-    email: req.body.email,
+app.get("/login", (req, res) => {
+  res.render("login");
+});
+
+app.get("/register", (req, res) => {
+  res.render("register");
+});
+
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  let user = await User.findOne({ email });
+
+  if (!user) return res.redirect("/register");
+
+  const isMatch = await bcrypt.compare(password, user.password);
+
+  if (!isMatch)
+    return res.render("login", { email, message: "Incorrect Password" });
+
+  const token = jwt.sign({ _id: user._id }, "sdjasdbajsdbjasd");
+
+  res.cookie("token", token, {
+    httpOnly: true,
+    expires: new Date(Date.now() + 60 * 1000),
   });
-  data.save();
-  res.send("data saved");
+  res.redirect("/");
 });
-app.post("/signup", (req, res) => {
-  console.log(req.body);
-  users.push(req.body);
-  res.end("Done");
+
+app.post("/register", async (req, res) => {
+  const { name, email, password } = req.body;
+
+  let user = await User.findOne({ email });
+  if (user) {
+    return res.redirect("/login");
+  }
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  user = await User.create({
+    name,
+    email,
+    password: hashedPassword,
+  });
+
+  const token = jwt.sign({ _id: user._id }, "sdjasdbajsdbjasd");
+
+  res.cookie("token", token, {
+    httpOnly: true,
+    expires: new Date(Date.now() + 60 * 1000),
+  });
+  res.redirect("/");
 });
-app.get("/users", (req, res) => {
-  res.json(users);
+
+app.get("/logout", (req, res) => {
+  res.cookie("token", null, {
+    httpOnly: true,
+    expires: new Date(Date.now()),
+  });
+  res.redirect("/");
+});
+
+app.listen(5000, () => {
+  console.log("Server is working");
 });
