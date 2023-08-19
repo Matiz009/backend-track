@@ -1,7 +1,8 @@
 import userModel from "../models/UserSchema.js";
 import bcrypt from "bcrypt";
 import { setCookie } from "../utils/features.js";
-const getallUsers = async (req, res) => {
+import ErrorHandler from "../middleware/error.js";
+const getallUsers = async (req, res, next) => {
   try {
     const usersData = await userModel.find({});
     res.json({
@@ -9,10 +10,7 @@ const getallUsers = async (req, res) => {
       users: usersData,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: "Error fetching users data.",
-    });
+    next(error);
   }
 };
 
@@ -22,28 +20,21 @@ const special = (req, res) => {
     message: "Just Checking",
   });
 };
-const getUserByToken = (req, res) => {
+const getUserByToken = (req, res, next) => {
   try {
     if (!req.user) {
-      res.status(404).json({
-        success: false,
-        error: "Error fetching user data.",
-      });
+      return next(new ErrorHandler("Not Found", 404));
     }
     res.status(200).json({
       success: true,
       user: req.user,
     });
   } catch (error) {
-    console.log(error);
-    res.status(404).json({
-      success: false,
-      error: "Error fetching user data.",
-    });
+    next(error);
   }
 };
 
-const createUser = async (req, res) => {
+const createUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
     let user = await userModel.findOne({ email });
@@ -61,11 +52,7 @@ const createUser = async (req, res) => {
     });
     setCookie(user, res, "User created successfully", 201);
   } catch (error) {
-    console.error(error); // Log the error for debugging
-    res.status(500).json({
-      success: false,
-      error: "Error while creating user.",
-    });
+    next(error);
   }
 };
 
@@ -73,7 +60,11 @@ const logout = (req, res) => {
   try {
     res
       .status(200)
-      .cookie("token", "", { expires: new Date(0) }) // Set the expiration date to a past date
+      .cookie("token", "", {
+        expires: new Date(0),
+        sameSite: process.env.NODE_ENV === "Development" ? "lax" : "none",
+        secure: process.env.NODE_ENV === "Development" ? false : true,
+      }) // Set the expiration date to a past date
       .json({
         success: true,
         user: req.user,
@@ -87,17 +78,11 @@ const login = async (req, res, next) => {
   const { email, password } = req.body;
   const user = await userModel.findOne({ email }).select("+password");
   if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: "Invalid Email or Password",
-    });
+    return next(new ErrorHandler("Not Found", 404));
   }
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    return res.status(404).json({
-      success: false,
-      message: "Invalid Email or Password",
-    });
+    return next(new ErrorHandler("Not Found", 404));
   }
   setCookie(user, res, `Welcome Back, ${user.name}`, 200);
 };
