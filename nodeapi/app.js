@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import userRoute from "./routes/UserRoute.js";
+import taskRoute from "./routes/task.js";
 import cookieParser from "cookie-parser";
 const app = express();
 const PORT = 4000;
@@ -9,7 +10,7 @@ const PORT = 4000;
 app.use(express.json());
 app.use(cookieParser());
 app.use(userRoute);
-
+app.use(taskRoute);
 mongoose
   .connect("mongodb://127.0.0.1:27017/backendAPI", {
     useNewUrlParser: true,
