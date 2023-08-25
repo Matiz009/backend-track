@@ -28,7 +28,7 @@ function App() {
         setIsAuthenticated(false);
         setLoading(false);
       });
-  }, [setUser, setIsAuthenticated, setLoading]);
+  }, []);
 
   return (
     <Router>

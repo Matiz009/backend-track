@@ -28,14 +28,14 @@ const Header = () => {
         <h2> Todo App </h2>{" "}
       </div>{" "}
       <article>
-        <Link to={"/"}> Home </Link> <Link to={"/profile"}> Profile </Link>{" "}
+        <Link to={"/"}> Home </Link> <a href={"/profile"}> Profile </a>{" "}
         {isAuthenticated ? (
           <button disabled={loading} className="btn" onClick={logoutHandler}>
-            Logout
+            Logout{" "}
           </button>
         ) : (
-          <Link to={"/login"}>Login</Link>
-        )}
+          <Link href={"/login"}> Login </Link>
+        )}{" "}
       </article>{" "}
     </nav>
   );
